@@ -12,5 +12,6 @@
 **/docker-compose*
 **/Dockerfile*
 **/obj
+**/.idea
 LICENSE
 README.md
