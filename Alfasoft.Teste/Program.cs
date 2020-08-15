@@ -1,6 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Alfasoft.Teste
@@ -15,6 +16,8 @@ namespace Alfasoft.Teste
                 return;
             }
 
+            await CheckLastRunTime().ConfigureAwait(false);
+            
             try
             {
                 var usernames = await ReadUsernamesFromFile(args[0]).ConfigureAwait(false);
@@ -52,9 +55,11 @@ namespace Alfasoft.Teste
                 Console.WriteLine("An I/O error occurred while opening the file.");
                 Environment.Exit(ex.HResult);
             }
+            
+            await UpdateLastRunTime().ConfigureAwait(false);
         }
-
-        private static async Task<string[]> ReadUsernamesFromFile(string path)
+        
+        private static async Task<IEnumerable<string>> ReadUsernamesFromFile(string path)
         {
             var usernames = await File.ReadAllLinesAsync(path).ConfigureAwait(false);
                 
@@ -65,6 +70,27 @@ namespace Alfasoft.Teste
             }
 
             return usernames;
+        }
+
+
+        private static async Task CheckLastRunTime()
+        {
+            if (File.Exists("lastrun"))
+            {
+                var lastRunText = await File.ReadAllTextAsync("lastrun").ConfigureAwait(false);
+                var lastRun = DateTime.Parse(lastRunText);
+                var timeSpan = (int) DateTime.Now.Subtract(lastRun).TotalSeconds;
+                if (timeSpan < 60)
+                {
+                    Console.WriteLine($"You can run this Program again in {60 - timeSpan} seconds");
+                    Environment.Exit(0);
+                }
+            }
+        }
+        
+        private static async Task UpdateLastRunTime()
+        {
+            await File.WriteAllTextAsync("lastrun", $"{DateTime.Now}").ConfigureAwait(false);
         }
     }
 }
