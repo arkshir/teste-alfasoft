@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace Alfasoft.Teste
 {
@@ -21,6 +23,7 @@ namespace Alfasoft.Teste
             try
             {
                 var usernames = await ReadUsernamesFromFile(args[0]).ConfigureAwait(false);
+                await GetUsersInfoFromBitbucket(usernames).ConfigureAwait(false);
             }
             catch (ArgumentException ex)
             {
@@ -55,23 +58,7 @@ namespace Alfasoft.Teste
                 Console.WriteLine("An I/O error occurred while opening the file.");
                 Environment.Exit(ex.HResult);
             }
-            
-            await UpdateLastRunTime().ConfigureAwait(false);
         }
-        
-        private static async Task<IEnumerable<string>> ReadUsernamesFromFile(string path)
-        {
-            var usernames = await File.ReadAllLinesAsync(path).ConfigureAwait(false);
-                
-            if (usernames.Length == 0)
-            {
-                Console.WriteLine("No usernames provided on file");
-                Environment.Exit(0);
-            }
-
-            return usernames;
-        }
-
 
         private static async Task CheckLastRunTime()
         {
@@ -91,6 +78,53 @@ namespace Alfasoft.Teste
         private static async Task UpdateLastRunTime()
         {
             await File.WriteAllTextAsync("lastrun", $"{DateTime.Now}").ConfigureAwait(false);
+        }
+        
+        private static async Task<IEnumerable<string>> ReadUsernamesFromFile(string path)
+        {
+            Console.Write($"Reading usernames from {path}");
+            var usernames = await File.ReadAllLinesAsync(path).ConfigureAwait(false);
+                
+            if (usernames.Length == 0)
+            {
+                Console.WriteLine("\nNo usernames provided on file");
+                Environment.Exit(0);
+            }
+            
+            Console.WriteLine(" - OK!");
+            
+            return usernames;
+        }
+
+        private static async Task GetUsersInfoFromBitbucket(IEnumerable<string> usernames)
+        {
+            Console.WriteLine("Getting users from bitbucket api");
+            const string baseAddress = "https://api.bitbucket.org/2.0";
+            foreach (var username in usernames)
+            {
+                using var httpClient = new HttpClient();
+                var uri = $"{baseAddress}/users/{username}";
+                Console.Write($"{username} - {uri}");
+                var response = await httpClient.GetAsync(uri).ConfigureAwait(false);
+                Console.WriteLine($" - Status: {response.StatusCode}");
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                var formattedContent = FormatJsonString(content);
+                Console.WriteLine(formattedContent);
+                await UpdateLastRunTime().ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+            }
+        }
+
+        private static string FormatJsonString(string json)
+        {
+            var jObject = JObject.Parse(json);
+            var sb = new StringBuilder();
+            foreach (var prop in jObject.Properties())
+            {
+                sb.AppendLine($"{prop.Name}: {prop.Value}");
+            }
+
+            return sb.ToString();
         }
     }
 }
