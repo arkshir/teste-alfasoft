@@ -10,6 +10,8 @@ namespace Alfasoft.Teste
 {
     internal static class Program
     {
+        private static readonly DateTime RunTime = DateTime.Now;
+
         private static async Task Main(string[] args)
         {
             if (args.Length != 1 || args[0] == "--help")
@@ -62,11 +64,11 @@ namespace Alfasoft.Teste
 
         private static async Task CheckLastRunTime()
         {
-            if (File.Exists("lastrun"))
+            if (File.Exists(".lastrun"))
             {
-                var lastRunText = await File.ReadAllTextAsync("lastrun").ConfigureAwait(false);
+                var lastRunText = await File.ReadAllTextAsync(".lastrun").ConfigureAwait(false);
                 var lastRun = DateTime.Parse(lastRunText);
-                var timeSpan = (int) DateTime.Now.Subtract(lastRun).TotalSeconds;
+                var timeSpan = (int) RunTime.Subtract(lastRun).TotalSeconds;
                 if (timeSpan < 60)
                 {
                     Console.WriteLine($"You can run this Program again in {60 - timeSpan} seconds");
@@ -77,7 +79,7 @@ namespace Alfasoft.Teste
         
         private static async Task UpdateLastRunTime()
         {
-            await File.WriteAllTextAsync("lastrun", $"{DateTime.Now}").ConfigureAwait(false);
+            await File.WriteAllTextAsync(".lastrun", $"{DateTime.Now}").ConfigureAwait(false);
         }
         
         private static async Task<IEnumerable<string>> ReadUsernamesFromFile(string path)
@@ -104,12 +106,12 @@ namespace Alfasoft.Teste
             {
                 using var httpClient = new HttpClient();
                 var uri = $"{baseAddress}/users/{username}";
-                Console.Write($"{username} - {uri}");
+                await PrintAndLog($"{username} - {uri}", false).ConfigureAwait(false);
                 var response = await httpClient.GetAsync(uri).ConfigureAwait(false);
-                Console.WriteLine($" - Status: {response.StatusCode}");
+                await PrintAndLog($" - Status: {response.StatusCode}").ConfigureAwait(false);
                 var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var formattedContent = FormatJsonString(content);
-                Console.WriteLine(formattedContent);
+                await PrintAndLog($"{formattedContent}\n").ConfigureAwait(false);
                 await UpdateLastRunTime().ConfigureAwait(false);
                 await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
             }
@@ -125,6 +127,19 @@ namespace Alfasoft.Teste
             }
 
             return sb.ToString();
+        }
+
+        private static async Task PrintAndLog(string text, bool appendNewLine = true)
+        {
+            if (appendNewLine)
+            {
+                Console.WriteLine(text);
+            }
+            else
+            {
+                Console.Write(text);
+            }
+            await File.AppendAllTextAsync($"{RunTime:yyyyMMdd-hhmmss}.log", text);
         }
     }
 }
