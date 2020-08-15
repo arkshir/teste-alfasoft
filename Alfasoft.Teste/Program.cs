@@ -11,6 +11,8 @@ namespace Alfasoft.Teste
     internal static class Program
     {
         private static readonly DateTime RunTime = DateTime.Now;
+        private static readonly string BasePath = Path.GetDirectoryName(typeof(Program).Assembly.Location);
+        private static readonly string LastRunPath = Path.Combine(BasePath, ".lastrun");
 
         private static async Task Main(string[] args)
         {
@@ -64,9 +66,9 @@ namespace Alfasoft.Teste
 
         private static async Task CheckLastRunTime()
         {
-            if (File.Exists(".lastrun"))
+            if (File.Exists(LastRunPath))
             {
-                var lastRunText = await File.ReadAllTextAsync(".lastrun").ConfigureAwait(false);
+                var lastRunText = await File.ReadAllTextAsync(LastRunPath).ConfigureAwait(false);
                 var lastRun = DateTime.Parse(lastRunText);
                 var timeSpan = (int) RunTime.Subtract(lastRun).TotalSeconds;
                 if (timeSpan < 60)
@@ -79,7 +81,14 @@ namespace Alfasoft.Teste
         
         private static async Task UpdateLastRunTime()
         {
-            await File.WriteAllTextAsync(".lastrun", $"{DateTime.Now}").ConfigureAwait(false);
+            try
+            {
+                await File.WriteAllTextAsync(LastRunPath, $"{DateTime.Now}").ConfigureAwait(false);
+            }
+            catch (IOException)
+            {
+                Console.WriteLine("Couldn't update last run");
+            }
         }
         
         private static async Task<IEnumerable<string>> ReadUsernamesFromFile(string path)
@@ -139,7 +148,17 @@ namespace Alfasoft.Teste
             {
                 Console.Write(text);
             }
-            await File.AppendAllTextAsync($"{RunTime:yyyyMMdd-hhmmss}.log", text);
+
+            var filename = $"{RunTime:yyyyMMdd-hhmmss}.log";
+            
+            try
+            {
+                await File.AppendAllTextAsync(Path.Combine(BasePath, filename), text);
+            }
+            catch (IOException)
+            {
+                Console.WriteLine($"Couldn't Write {filename}");
+            }
         }
     }
 }
